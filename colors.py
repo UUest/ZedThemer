@@ -5,11 +5,11 @@ from rgbhex import rgb_to_hex
 RESET = "\x1b[0m"
 
 
-def print_color_block(rgb, label=""):
+def print_color_block(rgb, label="", index=""):
     R, G, B = rgb
     block = f"\x1b[48;2;{R};{G};{B}m  {RESET}"
     # Display a block and the hex value
-    print(f"{block} {rgb_to_hex(rgb)} {label}")
+    print(f"{index} {block} {rgb_to_hex(rgb)} {label}")
 
 def complementary_color(rgb):
     # invert RGB to find complementary color

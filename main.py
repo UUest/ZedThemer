@@ -1,4 +1,3 @@
-from email.policy import default
 import argparse
 import random
 import sys
@@ -7,40 +6,50 @@ from colorthief import ColorThief
 from prompt_toolkit import prompt
 from colors import complementary_color, print_color_block
 from rgbhex import hex_to_rgb, rgb_to_hex
-from theme import load_theme_json, save_theme_json
-import colors
+from theme import load_theme_json, save_theme_json, display_json_theme
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate and edit Zed theme color palletes.")
-    parser.add_argument("--image", "-i", help="Path to the image file")
+    parser = argparse.ArgumentParser(description="Generate and edit theme color palletes.")
+    parser.add_argument("--image", "-i", help="Path to image file")
     parser.add_argument("--colors", "-c", type=int, default=10, help="Number of colors in the palette")
     parser.add_argument("--quality", "-q", type=int, default=1, help="ColorThief quality parameter (1 = best, higher = faster)")
-    parser.add_argument("--theme", "-t", default="theme.json", help="Path to theme configuration JSON file")
+    parser.add_argument("--theme", "-t", help="Path to theme configuration JSON file")
 
     args = parser.parse_args()
+    if not args.theme and not args.image:
+        print("Must specify an image or a theme file")
+        sys.exit(1)
 
+    # Confirm image exists
     if not os.path.exists(args.image):
         print("Image file does not exist.")
         sys.exit(1)
 
     # ColorThief on image to get palette
-    ct = ColorThief(args.image)
-    palette = ct.get_palette(color_count=args.colors, quality=args.quality)
+    palette = []
+    if args.image:
+        ct = ColorThief(args.image)
+        palette = ct.get_palette(color_count=args.colors, quality=args.quality)
+
+    if args.theme:
+        if not os.path.exists(args.theme):
+            print(f"Theme file does not exist. Creating new theme at {args.theme}")
 
     # Load existing theme if specified
-    theme_data = load_theme_json(args.theme)
-
+    theme_data = {}
+    if args.theme:
+        theme_data = load_theme_json(args.theme)
     # Main Loop
     while True:
+        tn = args.theme if args.theme != None else "None"
+        print(f"\nCurrent Theme: {tn}")
+        if args.theme != None:
+            display_json_theme(args.theme)
+
+
         print("\nCurrent Palette:")
         for i, color in enumerate(palette):
-            label = ""
-            # Check if color is assigned in theme_data
-            for k, v in theme_data.items():
-                if v.lower() == rgb_to_hex(color).lower():
-                    label = f" (assigned to {k})"
-                    break
-            print_color_block(color, label=label)
+            print_color_block(color, index=str(i))
 
         print("\nMenu:")
         print("1) Add color")
@@ -134,6 +143,11 @@ def main():
                     print_color_block(comp, "Complementary suggestion")
             case '6':
                 # Save & exit
+                if args.theme is None:
+                    theme_path = prompt("No theme path currently selected, please enter a path:")
+                    save_theme_json(theme_path, theme_data)
+                    print(f"Saved new theme at {theme_path}")
+                    break
                 save_theme_json(args.theme, theme_data)
                 print("Changes Saved. Exiting.")
                 break

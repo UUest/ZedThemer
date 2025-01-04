@@ -2,7 +2,7 @@ import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, colorchooser
 import os
-
+from colorthief import ColorThief
 
 class ThemeEditorApp:
     def __init__(self, root):
@@ -12,10 +12,15 @@ class ThemeEditorApp:
         self.theme_data = {}
         self.palette = []
         self.palette_raw = []
+        self.image_path = ""
 
         self.create_widgets()
 
     def create_widgets(self):
+        # Image Section
+        self.image_frame = tk.LabelFrame(self.root, text="Image", padx=10, pady=10)
+        self.image_frame.pack(fill="x", padx=10, pady=10)
+
         # Palette Section
         self.palette_frame = tk.LabelFrame(self.root, text="Palette", padx=10, pady=10)
         self.palette_frame.pack(fill="x", padx=10, pady=10)
@@ -117,6 +122,18 @@ class ThemeEditorApp:
             messagebox.showinfo("Success", f"Theme saved to {save_folder}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save theme: {e}")
+
+    def load_image(self):
+            file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg *.jpeg *.png *.bmp")])
+            if not file_path:
+                return
+
+            try:
+                ct = ColorThief(file_path)
+                self.palette = ct.get_palette(color_count=8, quality=1)
+                self.update_palette_display()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load image: {e}")
 
     def clear_colors(self):
         if not self.theme_data:

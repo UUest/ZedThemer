@@ -1,6 +1,6 @@
 from logging import exception
 import tkinter as tk
-from tkinter import filedialog, colorchooser, messagebox
+from tkinter import filedialog, messagebox, colorchooser
 from colorthief import ColorThief
 import json
 import os

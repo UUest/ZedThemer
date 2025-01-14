@@ -1,8 +1,11 @@
+from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
 import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, colorchooser
 import os
 from colorthief import ColorThief
+from rgbhex import rgb_to_hex, hex_to_rgb
+from PIL import Image, ImageTk
 
 class ThemeEditorApp:
     def __init__(self, root):
@@ -19,7 +22,7 @@ class ThemeEditorApp:
     def create_widgets(self):
         # Image Section
         self.image_frame = tk.LabelFrame(self.root, text="Image", padx=10, pady=10)
-        self.image_frame.pack(fill="x", padx=10, pady=10)
+        self.image_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Palette Section
         self.palette_frame = tk.LabelFrame(self.root, text="Palette", padx=10, pady=10)
@@ -61,8 +64,14 @@ class ThemeEditorApp:
         self.save_button = tk.Button(self.button_frame, text="Save Theme", command=self.save_theme)
         self.save_button.pack(side="left", padx=5)
 
-        self.clear_button = tk.Button(self.button_frame, text="Clear Colors", command=self.clear_colors)
-        self.clear_button.pack(side="left", padx=5)
+        self.clear_theme_button = tk.Button(self.button_frame, text="Clear Theme Colors", command=self.clear_colors)
+        self.clear_theme_button.pack(side="left", padx=5)
+
+        self.load_image_button = tk.Button(self.button_frame, text="Load Image", command=self.load_image)
+        self.load_image_button.pack(side="left", padx=5)
+
+        self.clear_palette_button = tk.Button(self.button_frame, text="Clear Palette", command=self.clear_palette)
+        self.clear_palette_button.pack(side="left", padx=5)
 
     def sanitize_hex_color(self, color_hex):
         """
@@ -124,16 +133,39 @@ class ThemeEditorApp:
             messagebox.showerror("Error", f"Failed to save theme: {e}")
 
     def load_image(self):
-            file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg *.jpeg *.png *.bmp")])
-            if not file_path:
-                return
+        file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg *.jpeg *.png *.bmp")])
+        if not file_path:
+            return
 
-            try:
-                ct = ColorThief(file_path)
-                self.palette = ct.get_palette(color_count=8, quality=1)
-                self.update_palette_display()
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to load image: {e}")
+        try:
+            # Generate color palette from image
+            ct = ColorThief(file_path)
+            palette = ct.get_palette(color_count=10, quality=1)
+            for rgb in palette:
+                hex_color = rgb_to_hex(rgb)
+                if hex_color not in self.palette:
+                    self.palette.append(hex_color)
+            self.update_palette_display()
+
+            # Function to display the image after the frame is fully initialized
+            def display_image():
+                # Open and resize the image
+                img = Image.open(file_path)
+                img.thumbnail((self.image_frame.winfo_width(), self.image_frame.winfo_height()))  # Fit to frame size
+
+                # Convert to Tkinter-compatible format
+                img_tk = ImageTk.PhotoImage(img)
+
+                # Create a label to display the image
+                img_label = tk.Label(self.image_frame, image=img_tk, bg="gray")
+                img_label.image = img_tk  # Keep a reference to prevent garbage collection
+                img_label.place(relx=0.5, rely=0.5, anchor="center")  # Center the image
+
+            # Use `after` to ensure the frame dimensions are available
+            self.image_frame.after(100, display_image)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load image: {e}")
 
     def clear_colors(self):
         if not self.theme_data:
@@ -152,7 +184,6 @@ class ThemeEditorApp:
         self.update_theme_display()
 
     def extract_palette(self):
-        self.palette = []
         style = self.theme_data.get("themes", [{}])[0].get("style", {})
 
         for key, color in style.items():
@@ -171,13 +202,17 @@ class ThemeEditorApp:
 
         self.update_palette_display()
 
+    def clear_palette(self):
+        self.palette = []
+        self.update_palette_display()
+
     def update_palette_display(self):
         for widget in self.palette_inner_frame.winfo_children():
             widget.destroy()
 
         for color in self.palette:
             color_block = tk.Label(self.palette_inner_frame, bg=color, width=4, height=2)
-            color_block.pack(side="left", padx=2)
+            color_block.pack(side="left", padx=5)
 
     def update_theme_display(self):
         for widget in self.theme_inner_frame.winfo_children():
@@ -199,19 +234,77 @@ class ThemeEditorApp:
                     color_block = tk.Label(color_frame, bg=color, width=4, height=2)
                     color_block.pack(side="left", padx=5)
 
-                    change_button = tk.Button(color_frame, text="Change", command=lambda k=key: self.change_color(k))
-                    change_button.pack(side="left", padx=5)
             else:
                 key_label.config(bg=self.root["bg"])
 
+            change_button = tk.Button(
+                color_frame,
+                text="New Color",
+                command=lambda k=key: self.change_color(k)
+            )
+            change_button.pack(side="left", padx=5)
+
+            palette_button = tk.Button(
+                color_frame,
+                text="From Palette",
+                command=lambda key=key: self.open_palette_window(
+                        set_color_callback=lambda c: self.change_color(key, c)
+                )
+            )
+            palette_button.pack(side="left", padx=5)
             row += 1
 
-    def change_color(self, key):
-        color = colorchooser.askcolor()[1]
+    def change_color(self, key, color=None):
+        """
+        Changes the color for a given key. If no color is provided, opens a color chooser.
+        :param key: The key of the theme option to update.
+        :param color: The new color (optional). If None, opens a color chooser.
+        """
+        if not color:  # If no color is passed, open the color chooser
+            color = colorchooser.askcolor()[1]
         if not color:
-            return
+            return  # Exit if no color is selected
 
         self.update_theme_color(key, color)
+
+    def open_palette_window(self, set_color_callback):
+        """
+        Opens a new window displaying all colors in the current palette as selectable buttons.
+        :param set_color_callback: A callback function to set the selected color.
+        """
+        palette_window = tk.Toplevel(self.root)  # Use self.root as the parent
+        palette_window.title("Palette")
+        palette_window.geometry("400x300")
+
+        # Create a scrollable frame for palette colors
+        canvas = tk.Canvas(palette_window)
+        scrollbar = tk.Scrollbar(palette_window, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Add buttons for each color in the palette
+        for color in self.palette:
+            button = tk.Button(
+                scrollable_frame,
+                text=color,
+                bg=color,
+                command=lambda c=color: [set_color_callback(c), palette_window.destroy()]
+            )
+            button.pack(pady=5, padx=5, fill="x")
+    def select_color_from_palette(self, palette_window, set_color_callback, color):
+        set_color_callback(color)  # Update the color using the callback
+        palette_window.destroy()  # Close the palette window
+
 
     def update_theme_color(self, key, new_color):
         sanitized_color = self.sanitize_hex_color(new_color)

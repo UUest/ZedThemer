@@ -31,6 +31,7 @@ class ThemeEditorApp:
         self.palette_canvas = tk.Canvas(self.palette_frame, height=100)
         self.palette_scrollbar = tk.Scrollbar(self.palette_frame, orient="horizontal", command=self.palette_canvas.xview)
         self.palette_canvas.configure(xscrollcommand=self.palette_scrollbar.set)
+        self.add_scrollbar_events_x(self.palette_canvas)
 
         self.palette_inner_frame = tk.Frame(self.palette_canvas)
         self.palette_inner_frame.bind("<Configure>", lambda e: self.palette_canvas.configure(scrollregion=self.palette_canvas.bbox("all")))
@@ -46,6 +47,7 @@ class ThemeEditorApp:
         self.theme_canvas = tk.Canvas(self.theme_frame)
         self.theme_scrollbar = tk.Scrollbar(self.theme_frame, orient="vertical", command=self.theme_canvas.yview)
         self.theme_canvas.configure(yscrollcommand=self.theme_scrollbar.set)
+        self.add_scrollbar_events_y(self.theme_canvas)
 
         self.theme_inner_frame = tk.Frame(self.theme_canvas)
         self.theme_inner_frame.bind("<Configure>", lambda e: self.theme_canvas.configure(scrollregion=self.theme_canvas.bbox("all")))
@@ -289,6 +291,8 @@ class ThemeEditorApp:
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
+        self.add_scrollbar_events_y(canvas)
+
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
@@ -318,6 +322,50 @@ class ThemeEditorApp:
 
         self.update_theme_display()
 
+    def add_scrollbar_events_y(self, canvas):
+        """
+        Enables scrolling using trackpad gestures or mouse wheel on the given canvas.
+        :param canvas: The Canvas widget to enable scrolling.
+        """
+        # Bind mouse wheel events
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")  # For Windows/macOS
+
+        def _on_linux_scroll(event):
+            if event.num == 4:  # Scroll up
+                canvas.yview_scroll(-1, "units")
+            elif event.num == 5:  # Scroll down
+                canvas.yview_scroll(1, "units")
+
+        # Platform-specific event binding
+        if self.root.tk.call("tk", "windowingsystem") == "x11":  # Linux (X11)
+            canvas.bind("<Button-4>", _on_linux_scroll)
+            canvas.bind("<Button-5>", _on_linux_scroll)
+        else:  # Windows and macOS
+            canvas.bind("<MouseWheel>", _on_mousewheel)
+
+
+    def add_scrollbar_events_x(self, canvas):
+        """
+        Enables scrolling using trackpad gestures or mouse wheel on the given canvas.
+        :param canvas: The Canvas widget to enable scrolling.
+        """
+        # Bind mouse wheel events
+        def _on_mousewheel(event):
+            canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")  # For Windows/macOS
+
+        def _on_linux_scroll(event):
+            if event.num == 4:  # Scroll up
+                canvas.xview_scroll(-1, "units")
+            elif event.num == 5:  # Scroll down
+                canvas.xview_scroll(1, "units")
+
+        # Platform-specific event binding
+        if self.root.tk.call("tk", "windowingsystem") == "x11":  # Linux (X11)
+            canvas.bind("<Button-4>", _on_linux_scroll)
+            canvas.bind("<Button-5>", _on_linux_scroll)
+        else:  # Windows and macOS
+            canvas.bind("<MouseWheel>", _on_mousewheel)
 
 if __name__ == "__main__":
     root = tk.Tk()

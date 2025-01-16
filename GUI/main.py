@@ -74,6 +74,9 @@ class ThemeEditorApp:
         self.clear_palette_button = tk.Button(self.button_frame, text="Clear Palette", command=self.clear_palette)
         self.clear_palette_button.pack(side="left", padx=5)
 
+        self.load_palette_button = tk.Button(self.button_frame, text="Load Palette", command=self.load_palette)
+        self.load_palette_button.pack(side="left", padx=5)
+
     def sanitize_hex_color(self, color_hex):
         """
         Validates and sanitizes a hexadecimal color string.
@@ -140,6 +143,18 @@ class ThemeEditorApp:
                 d = d[part]
             d[keys[-1]] = value  # Assign the final value
         return nested
+
+    def load_palette(self):
+        palette_file = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
+        if not palette_file:
+            return
+
+        try:
+            with open(palette_file, "r") as f:
+                self.palette = json.load(f)
+            self.update_palette_display()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load palette: {e}")
 
 
     def save_theme(self):

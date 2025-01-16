@@ -1,4 +1,3 @@
-from ast import PyCF_ALLOW_TOP_LEVEL_AWAIT
 import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, colorchooser
@@ -105,32 +104,74 @@ class ThemeEditorApp:
         try:
             with open(theme_file, "r") as f:
                 self.theme_data = json.load(f)
+            flattened_theme = self.flatten_theme(self.theme_data)
+            self.theme_data = flattened_theme
             self.extract_palette()
             self.update_theme_display()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load theme: {e}")
+
+    def flatten_theme(self, theme, parent_key=""):
+        """
+        Recursively flattens a nested dictionary into a single dictionary.
+        Nested keys are represented as dot-separated strings.
+        """
+        flattened = {}
+        for key, value in theme.items():
+            full_key = f"{parent_key}.{key}" if parent_key else key
+            if isinstance(value, dict):  # If value is a nested dictionary, recurse
+                flattened.update(self.flatten_theme(value, full_key))
+            else:
+                flattened[full_key] = value
+        return flattened
+
+    def nest_theme(self, flattened):
+        """
+        Reconstructs a nested dictionary from a flattened one.
+        Keys with dot notation are split into nested dictionaries.
+        """
+        nested = {}
+        for key, value in flattened.items():
+            keys = key.split(".")
+            d = nested
+            for part in keys[:-1]:  # Traverse/create nested dictionaries
+                if part not in d:
+                    d[part] = {}
+                d = d[part]
+            d[keys[-1]] = value  # Assign the final value
+        return nested
+
 
     def save_theme(self):
         if not self.theme_data:
             messagebox.showerror("Error", "No theme loaded to save.")
             return
 
-        save_folder = filedialog.askdirectory()
-        if not save_folder:
+        # Open the save file dialog
+        save_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON Files", "*.json")])
+        if not save_path:
             return
 
         try:
-            theme_name = self.theme_data.get("name", "theme").replace(" ", "_")
-            theme_file = os.path.join(save_folder, f"{theme_name}.json")
-            palette_file = os.path.join(save_folder, f"{theme_name}_palette.json")
+            # Get the base name (without extension) from the save path
+            base_name = os.path.splitext(save_path)[0]
 
+            # File paths for theme and palette
+            theme_file = save_path  # Main theme file
+            palette_file = f"{base_name}_palette.json"  # Palette file
+
+            # Re-nest the theme data
+            nested_theme = self.nest_theme(self.theme_data)
+
+            # Save the nested theme JSON
             with open(theme_file, "w") as f:
-                json.dump(self.theme_data, f, indent=4)
+                json.dump(nested_theme, f, indent=4)
 
+            # Save the palette JSON
             with open(palette_file, "w") as f:
                 json.dump(self.palette, f, indent=4)
 
-            messagebox.showinfo("Success", f"Theme saved to {save_folder}")
+            messagebox.showinfo("Success", f"Theme saved to {os.path.dirname(save_path)}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save theme: {e}")
 
@@ -142,7 +183,7 @@ class ThemeEditorApp:
         try:
             # Generate color palette from image
             ct = ColorThief(file_path)
-            palette = ct.get_palette(color_count=10, quality=1)
+            palette = ct.get_palette(color_count=21, quality=1)
             for rgb in palette:
                 hex_color = rgb_to_hex(rgb)
                 if hex_color not in self.palette:

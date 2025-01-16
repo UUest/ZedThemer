@@ -15,6 +15,7 @@ class ThemeEditorApp:
         self.palette = []
         self.palette_raw = []
         self.image_path = ""
+        self.image_references = {}
 
         self.create_widgets()
 
@@ -214,9 +215,11 @@ class ThemeEditorApp:
                 # Convert to Tkinter-compatible format
                 img_tk = ImageTk.PhotoImage(img)
 
+                # Create reference to image to prevent garbage collection
+                self.image_references["main_image"] = img_tk
+
                 # Create a label to display the image
                 img_label = tk.Label(self.image_frame, image=img_tk, bg="gray")
-                img_label.image = img_tk  # Keep a reference to prevent garbage collection
                 img_label.place(relx=0.5, rely=0.5, anchor="center")  # Center the image
 
             # Use `after` to ensure the frame dimensions are available

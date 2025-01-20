@@ -146,7 +146,6 @@ class Zhemer:
             messagebox.showerror("Error", "No theme loaded to save.")
             return
 
-        # Open the save file dialog
         save_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON Files", "*.json")])
         if not save_path:
             return
@@ -183,6 +182,7 @@ class Zhemer:
             # Generate color palette from image
             ct = ColorThief(file_path)
             palette = ct.get_palette(color_count=21, quality=1)
+
             for rgb in palette:
                 hex_color = rgb_to_hex(rgb)
                 if hex_color not in self.palette:
@@ -340,8 +340,8 @@ class Zhemer:
             )
             button.pack(pady=5, padx=5, fill="x")
     def select_color_from_palette(self, palette_window, set_color_callback, color):
-        set_color_callback(color)  # Update the color using the callback
-        palette_window.destroy()  # Close the palette window
+        set_color_callback(color)
+        palette_window.destroy()
 
 
     def update_theme_color(self, key, new_color):

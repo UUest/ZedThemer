@@ -1,4 +1,4 @@
-from ZhemerThemed import Zhemer
+from Zhemer import Zhemer
 import tkinter as tk
 
 if __name__ == "__main__":

@@ -99,8 +99,8 @@ class Zhemer:
         try:
             with open(theme_file, "r") as f:
                 self.theme_data = json.load(f)
-            flattened_theme = self.flatten_theme(self.theme_data)
-            self.theme_data = flattened_theme
+            #flattened_theme = self.flatten_theme(self.theme_data)
+            #self.theme_data = flattened_theme
             self.extract_palette()
             self.update_theme_display()
         except Exception as e:
@@ -151,27 +151,12 @@ class Zhemer:
             return
 
         try:
-            # Get the base name (without extension) from the save path
-            base_name = os.path.splitext(save_path)[0]
-
-            # File paths for theme and palette
-            theme_file = save_path  # Main theme file
-            palette_file = f"{base_name}_palette.json"  # Palette file
-
-            # Re-nest the theme data
-            nested_theme = self.nest_theme(self.theme_data)
-
-            # Save the nested theme JSON
-            with open(theme_file, "w") as f:
-                json.dump(nested_theme, f, indent=4)
-
-            # Save the palette JSON
-            with open(palette_file, "w") as f:
-                json.dump(self.palette, f, indent=4)
-
+            with open(save_path, "w") as f:
+                json.dump(self.theme_data, f, indent=4)
             messagebox.showinfo("Success", f"Theme saved to {os.path.dirname(save_path)}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save theme: {e}")
+
 
     def load_image(self):
         file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg *.jpeg *.png *.bmp")])
@@ -259,44 +244,83 @@ class Zhemer:
             color_block.pack(side="left", padx=5)
 
     def update_theme_display(self):
+        # Clear old widgets in the theme display frame
         for widget in self.theme_inner_frame.winfo_children():
             widget.destroy()
 
-        style = self.theme_data.get("themes", [{}])[0].get("style", {})
-        row = 0
+        # In many themes, the relevant data is under themes[0].style,
+        # but adjust as needed for your JSON structure:
+        themes = self.theme_data.get("themes", [])
+        if not themes:
+            return
 
-        for key, value in style.items():
-            color_frame = tk.Frame(self.theme_inner_frame)
-            color_frame.grid(row=row, column=0, sticky="w", padx=5, pady=2)
+        style = themes[0].get("style", {})
 
-            key_label = tk.Label(color_frame, text=key, width=30, anchor="w")
+        # Start recursion at row=0 and depth=0 for indentation
+        self.display_dict(style, parent_widget=self.theme_inner_frame, row=0, depth=0)
+
+
+    def display_dict(self, d, parent_widget, row=0, depth=0):
+        """
+        Recursively display keys and values for a nested dictionary `d`.
+        Each nested dictionary is indented visually based on `depth`.
+
+        :param d: The dictionary to display
+        :param parent_widget: The Tkinter frame (or parent widget) to place items into
+        :param row: Current row for grid layout
+        :param depth: How many levels deep we are (for indentation or styling)
+        :return: The updated row index after placing all widgets
+        """
+        INDENT_SIZE = 2  # spaces to indent per depth level
+
+        for key, value in d.items():
+            # Create a container frame for each row
+            row_frame = tk.Frame(parent_widget)
+            row_frame.grid(row=row, column=0, sticky="w", padx=5, pady=2)
+            row += 1
+
+            # Show the key label (with indentation)
+            indent_spaces = " " * (depth * INDENT_SIZE)
+            key_label_text = f"{indent_spaces}{key}"
+            key_label = tk.Label(row_frame, text=key_label_text, anchor="w")
             key_label.pack(side="left")
 
-            if isinstance(value, str) and value.startswith("#"):
-                color = self.sanitize_hex_color(value)
-                if color:
-                    color_block = tk.Label(color_frame, bg=color, width=4, height=2)
-                    color_block.pack(side="left", padx=5)
-
+            if isinstance(value, dict):
+                # If the value is another dict, recurse deeper
+                row = self.display_dict(value, parent_widget, row=row, depth=depth+1)
             else:
-                key_label.config(bg=self.root["bg"])
+                # If the value is not a dict (e.g. a string, number, or None), display it
+                if isinstance(value, str) and value.startswith("#"):
+                    # Probably a hex color -> show a color block and editing buttons
+                    color = self.sanitize_hex_color(value)
+                    if color:
+                        color_block = tk.Label(row_frame, bg=color, width=4, height=2)
+                        color_block.pack(side="left", padx=5)
 
-            change_button = tk.Button(
-                color_frame,
-                text="New Color",
-                command=lambda k=key: self.change_color(k)
-            )
-            change_button.pack(side="left", padx=5)
+                else:
+                    # Non-color or invalid color
+                    # Just to visualize value if it's not a color
+                    val_label = tk.Label(row_frame, text=str(value))
+                    val_label.pack(side="left", padx=5)
 
-            palette_button = tk.Button(
-                color_frame,
-                text="From Palette",
-                command=lambda key=key: self.open_palette_window(
-                        set_color_callback=lambda c: self.change_color(key, c)
+                # Add your "change color" or "from palette" buttons if it might be a color
+                change_button = tk.Button(
+                    row_frame,
+                    text="New Color",
+                    command=lambda k=key, parent_dict=d: self.change_nested_color(parent_dict, k)
                 )
-            )
-            palette_button.pack(side="left", padx=5)
-            row += 1
+                change_button.pack(side="left", padx=5)
+
+                palette_button = tk.Button(
+                    row_frame,
+                    text="From Palette",
+                    command=lambda k=key, parent_dict=d: self.open_palette_window(
+                        set_color_callback=lambda c: self.change_nested_color(parent_dict, k, c)
+                    )
+                )
+                palette_button.pack(side="left", padx=5)
+
+        return row
 
     def change_color(self, key, color=None):
         if not color:  # If no color is passed, open the color chooser
@@ -306,6 +330,32 @@ class Zhemer:
 
         self.update_theme_color(key, color)
         self.update_palette_display()
+
+    def change_nested_color(self, parent_dict, key, new_color=None):
+        """
+        Updates a color in parent_dict[key] within a nested structure.
+        If new_color is None, opens a color chooser.
+        """
+        if not new_color:
+            new_color = colorchooser.askcolor()[1]  # returns e.g. "#RRGGBB"
+        if not new_color:
+            return
+
+        sanitized = self.sanitize_hex_color(new_color)
+        if not sanitized:
+            print(f"Invalid color: {new_color}")
+            return
+
+        parent_dict[key] = sanitized  # Update the color
+
+        # If you'd like to add the color to your palette:
+        if sanitized not in self.palette:
+            self.palette.append(sanitized)
+
+        # Refresh the display
+        self.update_theme_display()
+        self.update_palette_display()
+
 
     def open_palette_window(self, set_color_callback):
         palette_window = tk.Toplevel(self.root)  # Use self.root as the parent

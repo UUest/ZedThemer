@@ -99,34 +99,10 @@ class Zhemer:
         try:
             with open(theme_file, "r") as f:
                 self.theme_data = json.load(f)
-            #flattened_theme = self.flatten_theme(self.theme_data)
-            #self.theme_data = flattened_theme
             self.extract_palette()
             self.update_theme_display()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load theme: {e}")
-
-    def flatten_theme(self, theme, parent_key=""):
-        flattened = {}
-        for key, value in theme.items():
-            full_key = f"{parent_key}.{key}" if parent_key else key
-            if isinstance(value, dict):  # If value is a nested dictionary, recurse
-                flattened.update(self.flatten_theme(value, full_key))
-            else:
-                flattened[full_key] = value
-        return flattened
-
-    def nest_theme(self, flattened):
-        nested = {}
-        for key, value in flattened.items():
-            keys = key.split(".")
-            d = nested
-            for part in keys[:-1]:  # Traverse/create nested dictionaries
-                if part not in d:
-                    d[part] = {}
-                d = d[part]
-            d[keys[-1]] = value  # Assign the final value
-        return nested
 
     def load_palette(self):
         palette_file = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
